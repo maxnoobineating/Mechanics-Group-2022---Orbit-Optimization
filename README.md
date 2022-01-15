@@ -1,7 +1,6 @@
 # Mechanics-Group-2022---Orbit-Optimization
 
 <p>python versions: 3.9.6 </p>
-<p></p>
 <p>
 dependency:
 numpy, scipy, matplotlib, numba</p>
