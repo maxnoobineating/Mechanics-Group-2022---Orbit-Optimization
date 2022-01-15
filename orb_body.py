@@ -2,246 +2,197 @@ from orb_functions import *
 # parameter unload...
 # dunno why directly insert as argument will not immediately evaluate
 
-elpsM = EM['VSMIR'].elpsM
-elpsE = EM['VSMIR'].elpsE
-args = EM['VSMIR'].args
-fid = EM['VSMIR'].fid
-verb = EM['VSMIR'].verb
-maxiter = EM['VSMIR'].maxiter
-xtol = EM['VSMIR'].xtol
-gtol = EM['VSMIR'].gtol
-fM = EM['VSMIR'].fM
-ubs = EM['VSMIR'].ubs
-lbs = EM['VSMIR'].lbs
-periE = EM['VSMIR'].periE
-periM = EM['VSMIR'].periM
+def main(str):
+    vars = {}
+    pr = {}
 
-#-------------------------------------------#
-# "Initial" initial guess
-th0E = 0
-th0M = pi
+    elpsM = EM[str].elpsM
+    elpsE = EM[str].elpsE
+    args = EM[str].args
+    fid = EM[str].fid
+    verb = EM[str].verb
+    maxiter = EM[str].maxiter
+    xtol = EM[str].xtol
+    gtol = EM[str].gtol
+    fM = EM[str].fM
+    ubs = EM[str].ubs
+    lbs = EM[str].lbs
+    periE = EM[str].periE
+    periM = EM[str].periM
 
-r0E = ellipseEq(elps=elpsE, fth=th0E-periE)
-r0M = ellipseEq(elps=elpsM, fth=th0M-periM)
+    #-------------------------------------------#
+    # "Initial" initial guess
+    th0E = 0
+    th0M = pi
 
-rs0 = np.linspace(r0E, r0M, fid)
-# ths0 = np.linspace((pi+periM)/(fid-1), (pi+periM)/(fid-1), fid)
-ths0 = [th0E, th0M]
-cs0 = np.linspace(0.0, 0.0, fid-1)
-vars0 = np.concatenate((rs0, cs0, ths0), axis=0)
-vars0 = orbit_interp(np.array([147.0997134 , 216.89938903
-                                , 0.        , 0.
-                                , 3.14159265], np.float64), EM['VSMIR'].nfld)
-os0 = to_EosM(vars0, args, fid)
-dvs0 = dVs(os0, args, fid)
-dts0 = dTs(os0, args, fid)
+    r0E = ellipseEq(elps=elpsE, fth=th0E-periE)
+    r0M = ellipseEq(elps=elpsM, fth=th0M-periM)
 
-#
-# xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-#     , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-#     , makeplot(smoothxy(vars0), color='b'))
+    rs0 = np.linspace(r0E, r0M, fid)
+    # ths0 = np.linspace((pi+periM)/(fid-1), (pi+periM)/(fid-1), fid)
+    ths0 = [th0E, th0M]
+    cs0 = np.linspace(0.0, 0.0, fid-1)
+    # vars['init'] = np.concatenate((rs0, cs0, ths0), axis=0)
+    # Hohmann transfer inital guess
+    vars['init'] = orbit_interp(np.array([147.0997134 , 216.89938903
+                                        , 0.        , 0.
+                                        , 3.14159265], np.float64)
+                                , EM[str].nfld)
 
-# xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-#     , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-#     , makeplot(smoothxy(vars0, args), color='b'))
-#-------------------------------------------#
+    # xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
+    #     , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
+    #     , makeplot(smoothxy(vars0), color='b'))
+
+    # xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
+    #     , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
+    #     , makeplot(smoothxy(vars0, args), color='b'))
+    #-------------------------------------------#
+    # function repackaging
+    objectiveA = \
+        lambda vars, *args: objA(vars, args, fid=fid)
+
+    objectiveB = \
+        lambda vars, *args: objB(vars, args, fid=fid)
+
+    consOMbnd_eq = \
+        lambda vars, *args: consOM(vars, args, fid=fid)
+
+    consOEbnd_eq = \
+        lambda vars, *args: consOE(vars, args, fid=fid)
+
+    consdeltaV_OptB_ineq = \
+        lambda vars, *args: consdeltaV(vars, args, fid=fid)
+
+    # constraint packaging
+
+    con1 = {'type': 'eq', 'fun': consOEbnd_eq, 'args': args}
+    con2 = {'type': 'eq', 'fun': consOMbnd_eq, 'args': args}
+    conB = {'type': 'ineq', 'fun': consdeltaV_OptB_ineq, 'args': args}
+
+    bnds = opt.Bounds(lb=lbs, ub=ubs, keep_feasible=False)
+
+    nlc_lb = np.linspace(0, 0, fid)
+    nlc_ub = np.linspace(Ratio*fM, Ratio*fM, fid)
+
+    nlc = opt.NonlinearConstraint(\
+        njit(lambda vars: consThrslim(vars, args, fid))\
+        , nlc_lb\
+        , nlc_ub)
 
 
+    # Dictionary constraint 和 NonlinearConstraint Object 可以混用!
+    #---- Basinhopping ----#
+    # Option A
+    consA = [con1, con2, nlc]
 
-# function repackaging
-objectiveA = \
-    lambda vars, *args: objA(vars, args, fid=fid)
+    min_keywords = {"method": 'trust-constr'
+        , "bounds": bnds
+        , "constraints": consA
+        , "args": args
+        , "options": {'xtol' : xtol
+                    , 'maxiter': maxiter
+                    , 'verbose': verb}}
 
-objectiveB = \
-    lambda vars, *args: objB(vars, args, fid=fid)
+    with cProfile.Profile() as pr['A']:
+        solA = basinhopping(objectiveA
+                            , vars['init'].copy()
+                            , T = 50
+                            , niter = 20
+                            , minimizer_kwargs=min_keywords
+                            , niter_success=5)
+    vars['A'] = solA.x.copy()
 
-consOMbnd_eq = \
-    lambda vars, *args: consOM(vars, args, fid=fid)
 
-consOEbnd_eq = \
-    lambda vars, *args: consOE(vars, args, fid=fid)
+    #--------------------------------#
+    #---- Basinhopping ----#
+    # Option B
+    consB = [con1, con2, conB, nlc]
 
-consdeltaV_OptB_ineq = \
-    lambda vars, *args: consdeltaV(vars, args, fid=fid)
+    min_keywords = {"method": 'trust-constr'
+        , "bounds": bnds
+        , "constraints": consB
+        , "args": args
+        , "options": {'xtol' : xtol
+                    , 'maxiter': maxiter
+                    , 'verbose': verb}}
 
-# constraint packaging
+    with cProfile.Profile() as pr['B']:
+        solB = basinhopping(objectiveB
+                            , vars['A'].copy()
+                            , T = 50
+                            , niter = 20
+                            , minimizer_kwargs=min_keywords
+                            , niter_success=5)
+    vars['B'] = solB.x.copy()
 
-con1 = {'type': 'eq', 'fun': consOEbnd_eq, 'args': args}
-con2 = {'type': 'eq', 'fun': consOMbnd_eq, 'args': args}
-conB = {'type': 'ineq', 'fun': consdeltaV_OptB_ineq, 'args': args}
+    return (vars, pr)
 
-bnds = opt.Bounds(lb=lbs, ub=ubs, keep_feasible=False)
+vars = {}
+pr = {}
 
-nlc_lb = np.linspace(0, 0, fid)
-nlc_ub = np.linspace(Ratio*fM, Ratio*fM, fid)
+vars['RD-0410'], pr['RD-0410'] = main('RD-0410')
+vars['VASIMR'], pr['VASIMR'] = main('VASIMR')
 
-nlc = opt.NonlinearConstraint(\
-    njit(lambda vars: consThrslim(vars, args, fid))\
-    , nlc_lb\
-    , nlc_ub)
-
-# Dictionary constraint 和 NonlinearConstraint Object 可以混用!
-# Option A
-cons1 = [con1, con2, nlc]
-
-with cProfile.Profile() as pr1:
-    sol1 = minimize(objectiveA
-        , vars0.copy()
-        , method='trust-constr'
-        , bounds=bnds
-        , constraints=cons1
-        , args=args
-        , options={'xtol': xtol
-                , 'maxiter': maxiter
-                , 'verbose': verb})
-
-vars1 = sol1.x.copy()
-rths1 = rths(vars1)
-xys1 = xys(vars1)
-smxys1 = smoothxy(vars1, args)
-os1 = to_EosM(vars1, args, fid=fid)
-dvs1 = dVs(os1, args, fid=fid)
-dts1 = dTs(os1, args, fid=fid)
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(smxys1, color='b'))
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(xys1, color='b'))
-
-stats = pstats.Stats(pr1)
+print("VASIMR Option A Statistics:")
+stats = pstats.Stats(pr['VASIMR']['A'])
+stats.sort_stats(pstats.SortKey.TIME)
+stats.print_stats(.01)
+print("VASIMR Option B Statistics:")
+stats = pstats.Stats(pr['VASIMR']['B'])
+stats.sort_stats(pstats.SortKey.TIME)
+stats.print_stats(.01)
+print("RD-0410 Option A Statistics:")
+stats = pstats.Stats(pr['RD-0410']['A'])
+stats.sort_stats(pstats.SortKey.TIME)
+stats.print_stats(.01)
+print("RD-0410 Option B Statistics:")
+stats = pstats.Stats(pr['RD-0410']['B'])
 stats.sort_stats(pstats.SortKey.TIME)
 stats.print_stats(.01)
 
+osRA = to_EosM(vars['RD-0410']['A'], EM['RD-0410'].args, fid=Earth_Mars.fid)
+osRB = to_EosM(vars['RD-0410']['B'], EM['RD-0410'].args, fid=Earth_Mars.fid)
+osVA = to_EosM(vars['VASIMR']['A'], EM['VASIMR'].args, fid=Earth_Mars.fid)
+osVB = to_EosM(vars['VASIMR']['B'], EM['VASIMR'].args, fid=Earth_Mars.fid)
 
+dvsRA = dVs(osRA, EM['RD-0410'].args, fid=Earth_Mars.fid)
+dvsRB = dVs(osRB, EM['RD-0410'].args, fid=Earth_Mars.fid)
+dvsVA = dVs(osVA, EM['VASIMR'].args, fid=Earth_Mars.fid)
+dvsVB = dVs(osVB, EM['VASIMR'].args, fid=Earth_Mars.fid)
 
-#---- Basinhopping ----#
-cons1 = [con1, con2, nlc]
+dtsRA = dTs(osRA, EM['RD-0410'].args, fid=Earth_Mars.fid)
+dtsRB = dTs(osRB, EM['RD-0410'].args, fid=Earth_Mars.fid)
+dtsVA = dTs(osVA, EM['VASIMR'].args, fid=Earth_Mars.fid)
+dtsVB = dTs(osVB, EM['VASIMR'].args, fid=Earth_Mars.fid)
 
-min_keywords = {"method": 'trust-constr'
-    , "bounds": bnds
-    , "constraints": cons1
-    , "args": args
-    , "options": {'xtol' : xtol
-                , 'maxiter': maxiter
-                , 'verbose': verb}}
-with cProfile.Profile() as pr1b:
-    sol1b = basinhopping(objectiveA
-                        , vars0.copy()
-                        , T = 50
-                        , niter = 20
-                        , minimizer_kwargs=min_keywords
-                        , niter_success=5)
-# niter_success
-# Stop the run if the global minimum candidate remains the same
-# for this number of iterations.
+payloadRatioRA = exp(-sum(dvsRA)/EM['RD-0410'].Isp)
+payloadRatioVA = exp(-sum(dvsVA)/EM['VASIMR'].Isp)
 
-# T: temperature
-# The “temperature” parameter for the accept or reject criterion.
-# Higher “temperatures” mean that larger jumps in function value
-# will be accepted. For best results T should be comparable to
-# the separation (in function value) between local minima.
-
-vars1b = sol1b.x.copy()
-rths1b = rths(vars1b)
-xys1b = xys(vars1b)
-smxys1b = smoothxy(vars1b, args)
-os1b = to_EosM(vars1b, args, fid=fid)
-dvs1b = dVs(os1b, args, fid=fid)
-dts1b = dTs(os1b, args, fid=fid)
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(smxys1b, color='b'))
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(xys1b, color='b'))
-
-stats = pstats.Stats(pr1b)
-stats.sort_stats(pstats.SortKey.TIME)
-stats.print_stats(.01)
-
-#--------------------------------#
-
-
-# Option B
-cons2 = [con1, con2, conB, nlc]
-
-with cProfile.Profile() as pr2:
-    sol2 = minimize(objectiveB
-        , sol1.x.copy()
-        , method='trust-constr'
-        , bounds=bnds
-        , constraints=cons2
-        , args=args
-        , options={'xtol' : xtol
-                , 'maxiter': maxiter
-                , 'verbose': verb})
-
-vars2 = sol2.x.copy()
-rths2 = rths(vars2)
-xys2 = xys(vars2)
-smxys2 = smoothxy(vars2, args)
-os2 = to_EosM(vars2, args, fid=fid)
-dvs2 = dVs(os2, args, fid=fid)
-dts2 = dTs(os2, args, fid=fid)
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(smxys2, color='b'))
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(xys2, color='r'))
-
-stats = pstats.Stats(pr2)
-stats.sort_stats(pstats.SortKey.TIME)
-stats.print_stats(.01)
-
-#---- Basinhopping ----#
-min_keywords = {"method": 'trust-constr'
-    , "bounds": bnds
-    , "constraints": cons2
-    , "args": args
-    , "options": {'xtol' : xtol
-                , 'maxiter': maxiter
-                , 'verbose': verb}}
-with cProfile.Profile() as pr2b:
-    sol2b = basinhopping(objectiveB
-                        , vars0.copy()
-                        , T = 50
-                        , niter = 20
-                        , minimizer_kwargs=min_keywords
-                        , niter_success=5)
-# niter_success
-# Stop the run if the global minimum candidate remains the same
-# for this number of iterations.
-
-# T: temperature
-# The “temperature” parameter for the accept or reject criterion.
-# Higher “temperatures” mean that larger jumps in function value
-# will be accepted. For best results T should be comparable to
-# the separation (in function value) between local minima.
-
-vars2b = sol2b.x.copy()
-rths2b = rths(vars2b)
-xys2b = xys(vars2b)
-smxys2b = smoothxy(vars2b, args)
-os2b = to_EosM(vars2b, args, fid=fid)
-dvs2b = dVs(os2b, args, fid=fid)
-dts2b = dTs(os2b, args, fid=fid)
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(smxys2b, color='b'))
-
-xyplot(makeplot(ellipse_2d(fidel=128, elps=elpsE), line='--')
-    , makeplot(ellipse_2d(fidel=128, elps=elpsM), line='--')
-    , makeplot(xys2b, color='b'))
-
-stats = pstats.Stats(pr2b)
-stats.sort_stats(pstats.SortKey.TIME)
-stats.print_stats(.01)
+xyplot(makeplot(ellipse_2d(fidel=128, elps=Earth_Mars.elpsE)\
+            , line=':'\
+            , label=None\
+            , linewidth=.2)\
+    , makeplot(ellipse_2d(fidel=128, elps=Earth_Mars.elpsM)\
+            , line=':'\
+            , label=None\
+            , linewidth=.2)\
+    , makeplot(smoothxy(vars['RD-0410']['A'], EM['RD-0410'].args)\
+            , color='y'\
+            , label='RD-0410 A'\
+            , line=':'
+            , linewidth=1.0)\
+    , makeplot(smoothxy(vars['RD-0410']['B'], EM['RD-0410'].args)\
+            , color='r'\
+            , label='RD-0410 B'\
+            , line=':'
+            , linewidth=1.0)\
+    , makeplot(smoothxy(vars['VASIMR']['A'], EM['VASIMR'].args)\
+            , color='b'\
+            , label='VASIMR A'\
+            , line=':'
+            , linewidth=1.0)\
+    , makeplot(smoothxy(vars['VASIMR']['B'], EM['VASIMR'].args)\
+            , color='m'\
+            , label='VASIMR B'\
+            , line=':'
+            , linewidth=1.0))

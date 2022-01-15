@@ -277,10 +277,10 @@ class Control:
 #--------------------------------------------#
 Earth_Mars = Control()
 
-Earth_Mars.xtol = 1e-3
+Earth_Mars.xtol = 1e-2
 Earth_Mars.gtol = 1e-8
-Earth_Mars.maxiter = 6e2
-Earth_Mars.verb = 3
+Earth_Mars.maxiter = 5e2
+Earth_Mars.verb = 0
 
 Earth_Mars.nfld = 5
 Earth_Mars.fid # == 1*(2**nfld)+1
@@ -325,9 +325,9 @@ EM['RD-0410'] = copy.deepcopy(Earth_Mars)
 # Isp = 9.80665*910/1000 # = 9.80665*x*1e-3 (km/s), x be the specific impulse measured by weight
 # fM = 35.3/5000 # km*kg/s^2
 
-EM['RD-0410'].InitMass = 5e3 # kg
+EM['RD-0410'].InitMass = 50e3 # kg
 EM['RD-0410'].Isp = 5000 # = 9.80665*x*1e-3 (km/s), x be the specific impulse measured by weight
-EM['RD-0410'].fM = 5e-3 # (km*kg/s^2)/(kg)
+EM['RD-0410'].fM = 35.5e-3 # (km*kg/s^2)
 EM['RD-0410'].Mr = 0.1 # dry/full, for constraint, Option B
 EM['RD-0410'].DV # == Isp*log(1/Mr) # km/s
 
@@ -335,20 +335,20 @@ EM['RD-0410'].args # == (mu, aE, eE, aM, eM, periM, Isp, fM, DV)
 
 #--------------------------------------------#
 
-EM['VSMIR'] = copy.deepcopy(Earth_Mars)
+EM['VASIMR'] = copy.deepcopy(Earth_Mars)
 
 # Spacecraft
-# 2. EM['VSMIR']
-# VSMIR
+# 2. EM['VASIMR']
+# VASIMR
 # Isp = 5000
 # thrust = 5 kN
 
-EM['VSMIR'].InitMass = 5e3 # kg
-EM['VSMIR'].Isp = 5000 # = 9.80665*x*1e-3 (km/s), x be the specific impulse measured by weight
-EM['VSMIR'].fM = 5e-3 # (km*kg/s^2)
-EM['VSMIR'].Mr = 0.1 # dry/full, for constraint, Option B
-EM['VSMIR'].DV # == Isp*log(1/Mr) # km/s
+EM['VASIMR'].InitMass = 50e3 # kg
+EM['VASIMR'].Isp = 5000 # = 9.80665*x*1e-3 (km/s), x be the specific impulse measured by weight
+EM['VASIMR'].fM = 5e-3 # (km*kg/s^2)
+EM['VASIMR'].Mr = 0.1 # dry/full, for constraint, Option B
+EM['VASIMR'].DV # == Isp*log(1/Mr) # km/s
 
-EM['VSMIR'].args # == (mu, aE, eE, aM, eM, periM, Isp, fM, DV)
+EM['VASIMR'].args # == (mu, aE, eE, aM, eM, periM, Isp, fM, DV)
 
 #--------------------------------------------#

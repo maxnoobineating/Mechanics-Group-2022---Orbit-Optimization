@@ -80,13 +80,15 @@ def makeplot(xy
             , line=''
             , linewidth=.2
             , marker=''
-            , markersize=.1):
+            , markersize=.1
+            , label=None):
     return {'xy': xy
         , 'color': color
         , 'line': line
         , 'linewidth': linewidth
         , 'marker': marker
-        , 'markersize': markersize}
+        , 'markersize': markersize
+        , 'label': label}
 
 # plot it
 # plot = {'xy': xy, 'color': 'b', 'line': None, 'marker': 'o'}
@@ -97,12 +99,24 @@ def xyplot(*plots):
     fig.tight_layout()
     plt.plot([-scale[0], scale[0]], [0, 0], 'k')
     plt.plot([0, 0], [-scale[0], scale[0]], 'k')
+    lgs = []
+    lbs = []
     for p in plots:
-        plt.plot(p['xy'][0]
-                , p['xy'][1]
-                , p['marker']+p['line']+p['color']
-                , p['markersize']
-                , p['linewidth'])
+        lg = plt.plot(p['xy'][0]
+                    , p['xy'][1]
+                    , p['marker']+p['line']+p['color']
+                    , p['markersize']
+                    , p['linewidth'])
+        if p['label']!=None:
+            lgs.append(lg)
+            lbs.append(p['label'])
+    hds = tuple((lg[0] for lg in lgs))
+    print('hds: ', len(hds))
+    tuplbs = tuple((lb for lb in lbs))
+    print('lbs: ', len(lbs))
+    print(lbs)
+    plt.legend(handles=hds
+            , labels=tuplbs)
     plt.show()
 
 # fth, elps -> r
