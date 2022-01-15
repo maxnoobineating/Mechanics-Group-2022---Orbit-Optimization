@@ -280,7 +280,7 @@ Earth_Mars = Control()
 Earth_Mars.xtol = 1e-2
 Earth_Mars.gtol = 1e-8
 Earth_Mars.maxiter = 5e2
-Earth_Mars.verb = 0
+Earth_Mars.verb = 3
 
 Earth_Mars.nfld = 5
 Earth_Mars.fid # == 1*(2**nfld)+1
