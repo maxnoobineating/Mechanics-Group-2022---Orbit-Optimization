@@ -1,6 +1,5 @@
 from orb_control import*
 
-
 # Data definition:
 # Optimization Arguments:
 # each of:
@@ -41,44 +40,12 @@ from orb_control import*
 
 ############
 # not for efficiency
-# Vector
-def dot(arr1, arr2):
-    arr1 = np.array(arr1)
-    arr2 = np.array(arr2)
-    assert arr1.ndim == 1 and arr2.ndim == 1, "fun.dot: input not vectors"
-    assert arr1.size == arr2.size, "fun.dot: vec dimension mismatch"
-    return sum(arr1*arr2)
-
-def norm(arr):
-    arr = np.array(arr)
-    assert arr.ndim == 1, "fun.norm: input not vector"
-    return sqrt(dot(arr, arr))
-
-cross = lambda a, b: a[0]*b[1]-a[1]*b[0]
-
-def rotate(v, th):
-    R = np.vstack((
-        [cos(th), -sin(th)],
-        [sin(th), cos(th)]))
-    return sum((R*v).T)
-
-def phaseAngle(arr):
-    arr = np.array(arr)
-    angle = acos(arr[0]/norm(arr))
-    return angle if arr[1]>=0 else -angle
-
-def polarToCart(arr_pol):
-    arr_cart = []
-    for pol in arr_pol.T:
-        arr_cart.append([pol[0]*cos(pol[1]), pol[0]*sin(pol[1])])
-    return (np.array(arr_cart)).T
-
 # Plot
 # xy, options -> plot
 def makeplot(xy
             , color='k'
             , line=''
-            , linewidth=.2
+            , linewidth=.5
             , marker=''
             , markersize=.1
             , label=None):
@@ -92,40 +59,146 @@ def makeplot(xy
 
 # plot it
 # plot = {'xy': xy, 'color': 'b', 'line': None, 'marker': 'o'}
-scale = [5]
 def xyplot(*plots):
-    fig, axs = plt.subplots(1, 1)
-    axs.axis('equal')
-    fig.tight_layout()
-    plt.plot([-scale[0], scale[0]], [0, 0], 'k')
-    plt.plot([0, 0], [-scale[0], scale[0]], 'k')
     lgs = []
     lbs = []
     for p in plots:
         lg = plt.plot(p['xy'][0]
                     , p['xy'][1]
-                    , p['marker']+p['line']+p['color']
-                    , p['markersize']
-                    , p['linewidth'])
+                    , linestyle = p['line']
+                    , marker = p['marker']
+                    , color = p['color']
+                    , markersize=p['markersize']
+                    , linewidth=p['linewidth'])
         if p['label']!=None:
             lgs.append(lg)
             lbs.append(p['label'])
     hds = tuple((lg[0] for lg in lgs))
-    print('hds: ', len(hds))
     tuplbs = tuple((lb for lb in lbs))
-    print('lbs: ', len(lbs))
-    print(lbs)
     plt.legend(handles=hds
             , labels=tuplbs)
+
+# plot datas and their decorators
+# decs = list of functions of decorators containing plt.plot()
+#       , will pass in axs data to execute.
+# dec = xys, axs, ex(tra) -> None (plot!)
+# xys = list of datas
+def plotall(plots=[], decs=[], **exs):
+    fig, axs = plt.subplots(1, 1)
+    xyplot(*plots)
+    for dec in decs:
+        dec(plots, axs, exs)
+    axs.axis('equal')
+    fig.tight_layout()
+    plt.title(exs.get('title', ''))
     plt.show()
 
-# fth, elps -> r
-# fth:individual anamoly
-def ellipseEq(fth, elps):
-    e = elps['e']
-    assert e >= 0 and e < 1, "fun.ellipse_2d: invalid eccentricity"
-    a = elps['a']
-    return a*(1-e**2)/(1+e*cos(fth))
+#
+# Plot Decorators
+#
+factor = [0.8]
+red_black5 = ['#a91e25', '#7c1822', '#510a12', '#420a0d', '#0e0e10']
+orange_brown5 = ['#c75d05', '#ff760c', '#ff9549', '#f1cb8c', '#915634']
+light_darkBrown5 = ['#b58181', '#a36767', '#814d4d', '#683d3d', '#562b2b']
+light_darkBlue5 = ['#5766bd', '#4b54a0', '#3b468a', '#374081', '#2e3979']
+light_darkCyan5 = ['#4ef1ef', '#2acaea', '#34bdc6', '#02a9b9', '#0095a4']
+light_darkGreen = ['#93a47d', '#93b47d', '#93c47d', '#93d47d', '#93e47d']
+
+def sumf(lst, func=lambda x:x):
+    sum = 0
+    for ele in lst:
+        sum += func(ele)
+    return sum
+
+def axis_scale(axs):
+    return max(sumf(axs.get_xlim(), abs), sumf(axs.get_ylim(), abs))
+
+# Axis
+def paxis(xys, axs):
+    xlim = list(axs.get_xlim())
+    ylim = list(axs.get_ylim())
+
+    xlim[0] = min(-1, xlim[0])
+    xlim[1] = max(1, xlim[1])
+    ylim[0] = min(-1, ylim[0])
+    ylim[1] = max(1, ylim[1])
+
+    x0 = mat([xlim[0], 0])*factor[0]
+    x1 = mat([(xlim[1]-xlim[0]), 0])*factor[0]
+    y0 = mat([0, ylim[0]])*factor[0]
+    y1 = mat([0, (ylim[1]-ylim[0])])*factor[0]
+
+    plt.quiver(*[x0, y0]
+            , x1, y1
+            , color='k'
+            , width=0.003
+            , angles='xy'
+            , scale_units='xy'
+            , scale=1)
+
+# vector dot to dot:
+def pvec_dtd(dot1, dot2):
+    dot1 = mat(dot1)
+    dot2 = mat(dot2)
+    plt.quiver(*dot1
+            , *(dot2-dot1)
+            , color='k'
+            , width=0.003
+            , angles='xy'
+            , scale_units='xy'
+            , scale=1)
+
+# draw velocity vector
+def pthstvec(plots, axs, exs):
+    vars = exs['vars']
+    args = exs['args']
+    xys = to_xys(vars)
+    vels = velvecs(vars, args)
+    maxvel = max(map(lambda v: norm(v), vels))
+    maxaxis = axis_scale(axs)
+    print(vels)
+    print(maxaxis)
+    print(maxvel)
+    plt.quiver(*xys
+            , *(-vels.T)
+            , color='k'
+            , width=0.001
+            , angles='xy'
+            , scale_units='xy'
+            , scale=maxvel/maxaxis*20)
+
+def dot(arr1, arr2):
+    arr1 = mat(arr1)
+    arr2 = mat(arr2)
+    assert arr1.ndim == 1 and arr2.ndim == 1, "fun.dot: input not vectors"
+    assert arr1.size == arr2.size, "fun.dot: vec dimension mismatch"
+    return sum(arr1*arr2)
+
+def norm(arr):
+    arr = mat(arr)
+    assert arr.ndim == 1, "fun.norm: input not vector"
+    return sqrt(dot(arr, arr))
+
+cross = lambda a, b: a[0]*b[1]-a[1]*b[0]
+
+# counter-clockwise
+def rotate(v, th):
+    R = np.vstack((
+        [cos(th), -sin(th)],
+        [sin(th), cos(th)]))
+    return sum((R*mat(v)).T)
+
+def phaseAngle(arr):
+    arr = mat(arr)
+    angle = acos(arr[0]/norm(arr))
+    return angle if arr[1]>=0 else -angle
+
+def polarToCart(arr_pol):
+    arr_pol = mat(arr_pol)
+    arr_cart = []
+    for pol in arr_pol.T:
+        arr_cart.append([pol[0]*cos(pol[1]), pol[0]*sin(pol[1])])
+    return (mat(arr_cart)).T
 
 # generate set of ellipse point in xy
 # elps (section) -> xys
@@ -139,24 +212,18 @@ def ellipse_2d(elps, fidel=128):
     dth = (f2-f1)/fidel
     for n in range(fidel+1):
         r_ths.append((ellipseEq(fth=n*dth+f1, elps=elps), n*dth+f1+peri))
-    return polarToCart(np.array(r_ths).T)
+    return polarToCart(mat(r_ths).T)
 
-
-# draw tagged point
-
-# draw tagged vector
-# (P, vec), scale -> *draw
-def plot_vecP(vecP=(np.array([1, 2]), np.array([3, 4])), scale=1):
-    xy = np.vstack((vecP[0], vecP[0]+vecP[1]*scale)).T
-    plt.plot(xy[0], xy[1]
-            , 'k'
-            , linewidth=.5)
-
-# draw velocity vectors
-# vars -> *draw
+# fth, elps -> r
+# fth:individual anamoly
+def ellipseEq(fth, elps):
+    e = elps['e']
+    assert e >= 0 and e < 1, "fun.ellipse_2d: invalid eccentricity"
+    a = elps['a']
+    return a*(1-e**2)/(1+e*cos(fth))
 
 # vars to r-theta
-def rths(vars):
+def to_rths(vars):
     n = (len(vars)-1)//2
     rs = vars[:n]   # n
     thE = vars[-2]
@@ -164,8 +231,8 @@ def rths(vars):
     dth = (thM-thE)/(n-1)
     return np.vstack((rs, [thE+dth*i for i in range(n)]))
 
-def xys(vars):
-    return polarToCart(rths(vars))
+def to_xys(vars):
+    return polarToCart(to_rths(vars))
 
 # Orbit arc
 # vars -> list of {'a': ai, 'e':ei, 'peri': perigeeAngle, 'fs': (f1i, f2i)}
@@ -183,18 +250,18 @@ def orbArcs(vars, args):
                     ,'e': o[1]
                     , 'peri': absperi
                     , 'fs': (o[2], o[3])})
-        print("c: {0:.3f}\
-, a: {1:.3f}\
-, e: {2:.3f}\
-, peri: {3:.3f}\
-, fs: ({4:.3f}, {5:.3f})\
-, th: {6:.3f}".format(c
-            , o[0]
-            , o[1]
-            , absperi
-            , o[2]
-            , o[3]
-            , vars[-2]+dth*i))
+#         print("c: {0:.3f}\
+# , a: {1:.3f}\
+# , e: {2:.3f}\
+# , peri: {3:.3f}\
+# , fs: ({4:.3f}, {5:.3f})\
+# , th: {6:.3f}".format(c
+#             , o[0]
+#             , o[1]
+#             , absperi
+#             , o[2]
+#             , o[3]
+#             , vars[-2]+dth*i))
     return arcs
 
 
@@ -221,13 +288,13 @@ def con_vars(vars1, vars2):
     n1 = (len(v1)-1)//2
     n2 = (len(v2)-1)//2
     assert v1[n1-1] == v2[0], "fun.varscon: erroneous vars sections concatenation"
-    return np.array(v1[:n1]+v2[1:n2]+v1[n1:-2]+v2[n2:-2]+[None, None], np.float64)
+    return mat(v1[:n1]+v2[1:n2]+v1[n1:-2]+v2[n2:-2]+[None, None], np.float64)
 
 # interp helper (sectioned vars: ri, rj, dth, ci), n -> vars of n
 # !!! duped from EosM
 def arc_interp(ri, rj, ci, dth, nfld=1):
     if nfld == 0:
-        return np.array([ri, rj, ci, None, None], np.float64)
+        return mat([ri, rj, ci, None, None], np.float64)
     ki = sqrt(rj**2+ri**2-2*rj*ri*cos(dth))
     xi = (ri**2-rj**2)/2/ki
     yi = rj*ri*sin(dth)/ki
@@ -235,10 +302,10 @@ def arc_interp(ri, rj, ci, dth, nfld=1):
     ai = (sqrt(ci**2+(ui+ki/2)**2)+sqrt(ci**2+(ui-ki/2)**2)+ri+rj)/4
     ei = sqrt((xi-ui)**2+(yi-ci)**2)/2/ai
 
-    F1 = np.array([xi, yi])
-    F2 = np.array([ui, ci])
-    P1 = np.array([-ki/2, 0])
-    P2 = np.array([ki/2, 0])
+    F1 = mat([xi, yi])
+    F2 = mat([ui, ci])
+    P1 = mat([-ki/2, 0])
+    P2 = mat([ki/2, 0])
     r1i = P1 - F1
     r1j = P2 - F1
 
@@ -290,6 +357,28 @@ def orbit_interp(vars, nfld):
     vars_itped[-1] = vars[-1]
     return vars_itped
 
+# vars -> list of vec(x, y)
+def velvecs(vars, args):
+    fid = (len(vars)-1)//2
+    os = to_EosM(vars, args, fid)
+    urs = mat(list(map(lambda v: v/norm(v), to_xys(vars).T)))
+    unrs = mat(list(map(lambda v: rotate(v, pi/2), urs)))
+    vecs = []
+    mu = args[0]
+    for i in range(fid):
+        ai = os[i][0]
+        ei = os[i][1]
+        f2i = os[i][3]
+        hi = sqrt(mu*ai*(1-ei**2))
+        aj = os[i+1][0]
+        ej = os[i+1][1]
+        f1j = os[i+1][2]
+        hj = sqrt(mu*aj*(1-ej**2))
+
+        vec = mu*((ej*sin(f1j)/hj-ei*sin(f2i)/hi)*urs[i]\
+                +((1+ej*cos(f1j))/hj-(1+ei*cos(f2i))/hi)*unrs[i])
+        vecs.append(vec)
+    return mat(vecs)
 ###################
 
 #---------------------------------------#
@@ -507,3 +596,44 @@ def consdeltaV(vars, args, fid):
 #         for x in xk:
 #             print(x)
 #     return false
+
+
+#
+# elpsM = Earth_Mars.elpsM
+# elpsE = Earth_Mars.elpsE
+# fid = Earth_Mars.fid
+# verb = Earth_Mars.verb
+# maxiter = Earth_Mars.maxiter
+# xtol = Earth_Mars.xtol
+# gtol = Earth_Mars.gtol
+# periE = Earth_Mars.periE
+# periM = Earth_Mars.periM
+#
+#
+# th0E = 0
+# th0M = pi
+#
+# r0E = ellipseEq(elps=elpsE, fth=th0E-periE)
+# r0M = ellipseEq(elps=elpsM, fth=th0M-periM)
+#
+# rs0 = np.linspace(r0E, r0M, fid)
+# ths0 = np.linspace((pi+periM)/(fid-1), (pi+periM)/(fid-1), fid)
+# ths0 = [th0E, th0M]
+# cs0 = np.linspace(0.0, 0.0, fid-1)
+# vars0 = np.concatenate((rs0, cs0, ths0), axis=0)
+#
+# args = EM['VASIMR'].args
+# pvars0 = makeplot(smoothxy(vars0, args))
+# plots = [pvars0
+#     , makeplot(ellipse_2d(fidel=128, elps=Earth_Mars.elpsE)\
+#                 , line=':'\
+#                 , label=None\
+#                 , linewidth=.2)\
+#     , makeplot(ellipse_2d(fidel=128, elps=Earth_Mars.elpsM)\
+#                 , line=':'\
+#                 , label=None\
+#                 , linewidth=.2)]
+# decs = [pthstvec]
+#
+#
+# plotall(plots, decs, vars=vars0, args=EM['VASIMR'].args)

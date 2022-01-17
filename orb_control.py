@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import array as mat
 from math import sqrt, cos, sin, acos, exp, log, pi
 from itertools import islice
 from scipy.optimize import minimize
@@ -280,7 +281,7 @@ Earth_Mars = Control()
 Earth_Mars.xtol = 1e-2
 Earth_Mars.gtol = 1e-8
 Earth_Mars.maxiter = 5e2
-Earth_Mars.verb = 3
+Earth_Mars.verb = 0
 
 Earth_Mars.nfld = 5
 Earth_Mars.fid # == 1*(2**nfld)+1
@@ -325,9 +326,9 @@ EM['RD-0410'] = copy.deepcopy(Earth_Mars)
 # Isp = 9.80665*910/1000 # = 9.80665*x*1e-3 (km/s), x be the specific impulse measured by weight
 # fM = 35.3/5000 # km*kg/s^2
 
-EM['RD-0410'].InitMass = 50e3 # kg
+EM['RD-0410'].InitMass = 10e3 # kg
 EM['RD-0410'].Isp = 5000 # = 9.80665*x*1e-3 (km/s), x be the specific impulse measured by weight
-EM['RD-0410'].fM = 35.5e-3 # (km*kg/s^2)
+EM['RD-0410'].fM = 35.5 # (km*kg/s^2)
 EM['RD-0410'].Mr = 0.1 # dry/full, for constraint, Option B
 EM['RD-0410'].DV # == Isp*log(1/Mr) # km/s
 
@@ -343,7 +344,7 @@ EM['VASIMR'] = copy.deepcopy(Earth_Mars)
 # Isp = 5000
 # thrust = 5 kN
 
-EM['VASIMR'].InitMass = 50e3 # kg
+EM['VASIMR'].InitMass = 10e3 # kg
 EM['VASIMR'].Isp = 5000 # = 9.80665*x*1e-3 (km/s), x be the specific impulse measured by weight
 EM['VASIMR'].fM = 5e-3 # (km*kg/s^2)
 EM['VASIMR'].Mr = 0.1 # dry/full, for constraint, Option B
