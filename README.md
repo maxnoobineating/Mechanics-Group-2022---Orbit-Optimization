@@ -1,4 +1,4 @@
-# Mechanics-Group-2022---Orbit-Optimization
+# Mechanics-Group-2022-Orbit-Optimization
 <p>IT MAY TAKE A LONG TIME TO RUN!</p>
 <p>python versions: 3.9.6 </p>
 <p>
