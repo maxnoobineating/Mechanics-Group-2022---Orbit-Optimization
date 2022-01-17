@@ -108,61 +108,75 @@ def main(str, vars0):
 import json
 
 file_name = 'OptData.txt'
+try:
+    with open(file_name, 'x') as nfw:
+        nfw.write('[]')
+except FileExistsError as err:
+    print(err)
+
 with open(file_name, 'r') as fr:
     json_files_IMP = json.load(fr)
 js = json_files_IMP.copy()
 
+while True:
+    inp = input("read/write? (r/w):")
+    if inp == 'r':
+        vars = js[-1]['vars']
+        varsR = vars['RD-0410']
+        varsV = vars['VASIMR']
+        break
+    elif inp == 'w':
+        #-------------------------------------------#
+        # "Initial" initial guess
+        th0E = 0
+        th0M = pi
 
-#-------------------------------------------#
-# "Initial" initial guess
-th0E = 0
-th0M = pi
+        r0E = ellipseEq(elps=Earth_Mars.elpsE, fth=th0E-Earth_Mars.periE)
+        r0M = ellipseEq(elps=Earth_Mars.elpsM, fth=th0M-Earth_Mars.periM)
 
-r0E = ellipseEq(elps=Earth_Mars.elpsE, fth=th0E-Earth_Mars.periE)
-r0M = ellipseEq(elps=Earth_Mars.elpsM, fth=th0M-Earth_Mars.periM)
+        rs0 = np.linspace(r0E, r0M, Earth_Mars.fid)
+        # ths0 = np.linspace((pi+periM)/(fid-1), (pi+periM)/(fid-1), fid)
+        ths0 = [th0E, th0M]
+        cs0 = np.linspace(0.0, 0.0, Earth_Mars.fid-1)
+        # vars['init'] = np.concatenate((rs0, cs0, ths0), axis=0)
+        # Hohmann transfer inital guess
+        vars0 = orbit_interp(np.array([147.0997134 , 216.89938903
+                                    , 0.1        , 0.1
+                                    , 3.1], np.float64)
+                            , Earth_Mars.nfld)
 
-rs0 = np.linspace(r0E, r0M, Earth_Mars.fid)
-# ths0 = np.linspace((pi+periM)/(fid-1), (pi+periM)/(fid-1), fid)
-ths0 = [th0E, th0M]
-cs0 = np.linspace(0.0, 0.0, Earth_Mars.fid-1)
-# vars['init'] = np.concatenate((rs0, cs0, ths0), axis=0)
-# Hohmann transfer inital guess
-vars0 = orbit_interp(np.array([147.0997134 , 216.89938903
-                            , 0.1        , 0.1
-                            , 3.1], np.float64)
-                    , Earth_Mars.nfld)
+        vars = {}
+        pr = {}
+        # vars0R = vars0
+        # vars0V = vars0
+        varsR = []
+        varsV = []
+        for i in range(5):
+            varstmp = main('RD-0410', vars0.copy())
+            varsR.append({'A': list(varstmp['A']), 'B': list(varstmp['B'])})
+            varstmp = main('VASIMR', vars0.copy())
+            varsV.append({'A': list(varstmp['A']), 'B': list(varstmp['B'])})
+            # vars0R = varsR[i]['A']
+            # vars0V = varsV[i]['A']
+            EM['RD-0410'].InitMass += 10e3
+            EM['VASIMR'].InitMass += 10e3
 
-vars = {}
-pr = {}
-vars0R = vars0
-vars0V = vars0
-varsR = []
-varsV = []
-for i in range(5):
-    varstmp = main('RD-0410', vars0R.copy())
-    varsR.append({'A': list(varstmp['A']), 'B': list(varstmp['B'])})
-    varstmp = main('VASIMR', vars0V.copy())
-    varsV.append({'A': list(varstmp['A']), 'B': list(varstmp['B'])})
-    vars0R = varsR[i]['A']
-    vars0V = varsV[i]['A']
-    EM['RD-0410'].InitMass += 10e3
-    EM['VASIMR'].InitMass += 10e3
+        vars['RD-0410'] = varsR
+        vars['VASIMR'] = varsV
 
-vars['RD-0410'] = varsR
-vars['VASIMR'] = varsV
+        js_result = [{
+            'description' : '''
+        True 33 fid test!!
+        ['RD-0410'][0-4]['A'/'B']
+        ['VASIMR'][0-4]['A'/'B']
+        trajectory v.s. changing initial mass from 10 to 50 tons
+        '''
+            , 'vars': vars}]
 
-js_result = [{
-    'description' : '''
-True 33 fid test!!
-['RD-0410'][0-4]['A'/'B']
-['VASIMR'][0-4]['A'/'B']
-trajectory v.s. changing initial mass from 10 to 50 tons
-'''
-    , 'vars': vars}]
-
-with open(file_name, 'w') as fw:
-    wstr = json.dumps(json_files_IMP+js_result)
-    fw.write(wstr)
+        with open(file_name, 'w') as fw:
+            wstr = json.dumps(json_files_IMP+js_result)
+            fw.write(wstr)
+        break
 
 osRA = list(map(lambda x: to_EosM(x['A'], EM['RD-0410'].args, fid=Earth_Mars.fid), vars['RD-0410']))
 osRB = list(map(lambda x: to_EosM(x['B'], EM['RD-0410'].args, fid=Earth_Mars.fid), vars['RD-0410']))
@@ -201,23 +215,26 @@ EMorbit=\
 [makeplot(ellipse_2d(fidel=128, elps=Earth_Mars.elpsE)\
             , line=':'\
             , label=None\
-            , linewidth=.2)\
+            , linewidth=1.0)\
 ,makeplot(ellipse_2d(fidel=128, elps=Earth_Mars.elpsM)\
         , line=':'\
         , label=None\
-        , linewidth=.2)]
-
+        , linewidth=1.0)]
+red_black5.reverse()
+orange_brown5.reverse()
+light_darkBlue5.reverse()
+light_darkCyan5.reverse()
 ziped = zip(map(lambda x: smoothxy(x['A'], EM['RD-0410'].args), varsR), red_black5)
-plotsRA = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-')
+plotsRA = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-', linewidth=2.0)
                 , ziped))
 ziped = zip(map(lambda x: smoothxy(x['B'], EM['RD-0410'].args), varsR), orange_brown5)
-plotsRB = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-')
+plotsRB = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-', linewidth=2.0)
                 , ziped))
-ziped = zip(map(lambda x: smoothxy(x['A'], EM['VASIMR'].args), varsV), light_darkBlue5)
-plotsVA = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-')
+ziped = zip(map(lambda x: smoothxy(x['A'], EM['VASIMR'].args), varsV), light_darkGreen)
+plotsVA = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-', linewidth=2.0)
                 , ziped))
 ziped = zip(map(lambda x: smoothxy(x['B'], EM['VASIMR'].args), varsV), light_darkCyan5)
-plotsVB = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-')
+plotsVB = list(map(lambda xy_c: makeplot(xy_c[0], color=xy_c[1], line='-', linewidth=2.0)
                 , ziped))
 
 vecfsRA = list(map(lambda vars:
@@ -237,12 +254,22 @@ vecfsVB = list(map(lambda vars:
                                                 , 'args': EM['VASIMR'].args}))
                 , varsV))
 
-print(EMorbit+plotsRA)
+def cut(lst):
+    return [lst[0], lst[-1]]
+
 # RA
-plotall(EMorbit+plotsRA, vecfsRA, title='RD-0410 Minimum Energy')
+plotall(EMorbit+[plotsRA[0], plotsRA[-1]], cut(vecfsRA), title='RD-0410 Minimum Energy')
 # RB
-plotall(EMorbit+plotsRB, vecfsRB, title='RD-0410 Minimum Time')
+plotall(EMorbit+[plotsRB[0], plotsRB[-1]], cut(vecfsRB), title='RD-0410 Minimum Time')
 # VA
-plotall(EMorbit+plotsVA, vecfsVA, title='VASIMR Minimum Energy')
+plotall(EMorbit+[plotsVA[0], plotsVA[-1]], cut(vecfsVA), title='VASIMR Minimum Energy')
 # VB
-plotall(EMorbit+plotsVB, vecfsVB, title='VASIMR Minimum Time')
+plotall(EMorbit+[plotsVB[0], plotsVB[-1]], cut(vecfsVB), title='VASIMR Minimum Time')
+
+plotall(EMorbit+[plotsRA[-1], plotsVA[-1]], [vecfsRA[-1], vecfsVA[-1]], title='RD-0410 vs. VASIMR Minimum Energy')
+# RB
+plotall(EMorbit+[plotsRB[-1]], cut(vecfsRB), title='RD-0410 Minimum Time')
+# VA
+plotall(EMorbit+[plotsVA[-1]], cut(vecfsVA), title='VASIMR Minimum Energy')
+# VB
+plotall(EMorbit+[plotsVB[-1]], cut(vecfsVB), title='VASIMR Minimum Time')
