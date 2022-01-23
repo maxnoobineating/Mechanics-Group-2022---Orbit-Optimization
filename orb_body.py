@@ -268,8 +268,8 @@ plotall(EMorbit+[plotsVB[0], plotsVB[-1]], cut(vecfsVB), title='VASIMR Minimum T
 
 plotall(EMorbit+[plotsRA[-1], plotsVA[-1]], [vecfsRA[-1], vecfsVA[-1]], title='RD-0410 vs. VASIMR Minimum Energy')
 # RB
-plotall(EMorbit+[plotsRB[-1]], cut(vecfsRB), title='RD-0410 Minimum Time')
+plotall(EMorbit+[plotsRB[-1]], [vecfsRB[-1]], title='RD-0410 Minimum Time')
 # VA
-plotall(EMorbit+[plotsVA[-1]], cut(vecfsVA), title='VASIMR Minimum Energy')
+plotall(EMorbit+[plotsVA[-1]], [vecfsVA[-1]], title='VASIMR Minimum Energy')
 # VB
-plotall(EMorbit+[plotsVB[-1]], cut(vecfsVB), title='VASIMR Minimum Time')
+plotall(EMorbit+[plotsVB[-1]], [vecfsVB[-1]], title='VASIMR Minimum Time')
